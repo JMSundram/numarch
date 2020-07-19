@@ -10,25 +10,27 @@ class arch:
         # Create variables
         if model not in ['bekk-arch', 'bekk-garch']:
             raise Exception('Unknown model \'{}\''.format(model))
-        self.model = model
-        self.estimates = None
-        self.cov = None
-        self.T = None
-        self.p = None
-        self.q = None
-        self.d = None
-        self.X = None
-        self.Sxx = None
-        self.scaling = 1
+        self.model = model # Model type
+        self.estimates = None # Parameter estimates
+        self.cov = None # Sandwich formula estimate of covariance matrix
+        self.T = None # Number of observations
+        self.p = None # Number of variables
+        self.q = None # Number of elements above diagonal in pxp matrix
+        self.d = None # Number of scalar parameters
+        self.X = None # Data
+        self.Sxx = None # Sample (unconditional) covariance matrix
+        self.scaling = 1 # Scaling for log-likelihood fu nction
         
     # Negative log likelihood
     def nllik(self, theta):
+        '''Compute negative log-likelihood in parameter vector theta'''
         if self.model == 'bekk-arch' or self.model =='bekk-garch':
             # Calculate log-likelihood
             nllik = np.sum(self.lik_con(theta))/self.scaling
             return -nllik
         
     def lik_con(self, theta):
+        '''Compute log-likelihood contributions in parameter vecor theta'''
         param_dict = self.unpacker(theta)
         if self.model == 'bekk-arch':
             # Get input
@@ -36,12 +38,16 @@ class arch:
             A      = param_dict['A']
 
             # Compute Omega_t's
-            OMEGA_T = [Omega + A @ self.X[t,].reshape(self.p,1) @ self.X[t,].reshape(1,self.p) @ A.T
+            OMEGA_T = [Omega + A @ self.X[t,].reshape(self.p,1)
+                                 @ self.X[t,].reshape(1,self.p) @ A.T
                        for t in range(self.T)]
 
             # Return log-likelihood contributions
-            return [-0.5*(self.p*np.log(2*math.pi) + np.log(np.linalg.det(OMEGA_T[t]))
-                    + self.X[t+1,].reshape(1,self.p) @ np.linalg.inv(OMEGA_T[t]) @ self.X[t+1,].reshape(self.p,1))
+            return [-0.5*(self.p*np.log(2*math.pi)
+                          + np.log(np.linalg.det(OMEGA_T[t]))
+                          + self.X[t+1,].reshape(1,self.p)
+                          @ np.linalg.inv(OMEGA_T[t])
+                          @ self.X[t+1,].reshape(self.p,1))
                     for t in range(self.T-1)]
         elif self.model == 'bekk-garch':
             # Get input
@@ -53,19 +59,24 @@ class arch:
             OMEGA_T = []
             for t in range(self.T):
                 if t > 0:
-                    Omega_t = Omega + A @ self.X[t-1,].reshape(self.p,1) @ self.X[t-1,].reshape(1,self.p) @ A.T\
+                    Omega_t = Omega + A @ self.X[t-1,].reshape(self.p,1)\
+                                        @ self.X[t-1,].reshape(1,self.p) @ A.T\
                                     + B @ OMEGA_T[-1] @ B.T
                 else:
                     Omega_t = self.Sxx
                 OMEGA_T.append(Omega_t)
                 
             # Return log-likelihood contributions
-            return [-0.5*(self.p*np.log(2*math.pi) + np.log(np.linalg.det(OMEGA_T[t]))
-                    + self.X[t+1,].reshape(1,self.p) @ np.linalg.inv(OMEGA_T[t]) @ self.X[t+1,].reshape(self.p,1))
+            return [-0.5*(self.p*np.log(2*math.pi)
+                          + np.log(np.linalg.det(OMEGA_T[t]))
+                          + self.X[t+1,].reshape(1,self.p)
+                          @ np.linalg.inv(OMEGA_T[t])
+                          @ self.X[t+1,].reshape(self.p,1))
                     for t in range(self.T-1)]
 
     # Constraint
     def cons(self, theta):
+        '''Constrain the parameter space of the maximization problem'''
         if self.model == 'bekk-arch' or self.model == 'bekk-garch':
             # Get Omega
             Omega = self.unpacker(theta)['Omega']
@@ -73,6 +84,7 @@ class arch:
     
     # Unpack theta into estimates
     def unpacker(self, theta):
+        '''Unpack parameter vector theta into a more readable format'''
         if self.model == 'bekk-arch':
             return {'Omega': unvech(theta[:self.q]),
                     'A': theta[self.q:].reshape(self.p,self.p)}
@@ -83,6 +95,7 @@ class arch:
         
     # Initial values
     def init_theta(self):
+        '''Initialize the parameter vector'''
         if self.model == 'bekk-arch':
             Omega_0 = vech(self.Sxx)
             A_0     = 0.5*np.eye(self.p).flatten()
@@ -99,41 +112,59 @@ class arch:
         
     # Check model staionarity
     def stationarity(self, theta):
+        '''Check if model with theta is covariance stationarity'''
         param_dict = self.unpacker(theta)
         if self.model == 'bekk-arch':
             Omega = param_dict['Omega']
             A = param_dict['A']
             try:
-                rho = sorted(np.abs(np.linalg.eig(np.kron(A,A))[0]), reverse=True)[0]
+                rho = sorted(np.abs(np.linalg.eig(
+                             np.kron(A,A))[0]), reverse=True)[0]
                 if rho < 1:
-                    print('\nCondition for covariance stationarity confirmed: {:.2f} < 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'confirmed: {:.2f} < 1'.format(rho))
                 else:
-                    print('\nCondition for covariance stationarity failed: {:.2f} > 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'failed: {:.2f} > 1'.format(rho))
             except:
                 rho = A**2
                 if rho < 1:
-                    print('\nCondition for covariance stationarity confirmed: {:.2f} < 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'confirmed: {:.2f} < 1'.format(rho))
                 else:
-                    print('\nCondition for covariance stationarity failed: {:.2f} > 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'failed: {:.2f} > 1'.format(rho))
         elif self.model == 'bekk-garch':
             Omega = param_dict['Omega']
             A = param_dict['A']
             B = param_dict['B']
             try:
-                rho = sorted(np.abs(np.linalg.eig(np.kron(A,A)+np.kron(B,B))[0]), reverse=True)[0]
+                rho = sorted(np.abs(np.linalg.eig(
+                             np.kron(A,A)+np.kron(B,B))[0]), reverse=True)[0]
                 if rho < 1:
-                    print('\nCondition for covariance stationarity confirmed: {:.2f} < 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'confirmed: {:.2f} < 1'.format(rho))
                 else:
-                    print('\nCondition for covariance stationarity failed: {:.2f} > 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'failed: {:.2f} > 1'.format(rho))
             except:
                 rho = A**2 + B**2
                 if rho < 1:
-                    print('\nCondition for covariance stationarity confirmed: {:.2f} < 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'confirmed: {:.2f} < 1'.format(rho))
                 else:
-                    print('\nCondition for covariance stationarity failed: {:.2f} > 1'.format(rho))
+                    print('\nCondition for covariance stationarity '
+                          'failed: {:.2f} > 1'.format(rho))
         
     # Fit model        
     def fit(self, X, se = True, options = {'disp': False, 'ftol': 1e-06}):
+        '''Fit model
+        
+        Keyword arguments:
+        X       -- Data (T x p array)
+        se      -- Boolean indicating if standard errors should be computed
+        options -- Options for scipy.optimize.minimize
+        '''
         print('BEGAN ESTIMATING {}...'.format(self.model.upper()))
         
         # Get data
@@ -144,8 +175,8 @@ class arch:
         self.Sxx = np.dot(self.X.T, self.X)/self.T
         
         # System dimensionality
-        self.p = self.X.shape[1]          # Dimensionality of system (Omega is p x p)
-        self.q = int(self.p*(self.p+1)/2) # Number of unique parameters in Omega
+        self.p = self.X.shape[1]
+        self.q = int(self.p*(self.p+1)/2)
         
         # Initialize theta and find scaling
         theta_0 = self.init_theta()
@@ -165,7 +196,8 @@ class arch:
         t1 = time.time()
         warnings.resetwarnings()
         if res.success:
-            print('\nNumerical optimization succesfully converged in {:.2f} seconds'.format(t1-t0))
+            print('\nNumerical optimization succesfully converged '
+                  'in {:.2f} seconds'.format(t1-t0))
         else:
             print('\nWARNING: Numerical optimization did not converge')
         
