@@ -1,7 +1,7 @@
 # numarch
 
 ## About
-A package for numerical maximum likelihood estimation of multivariate autoregressive conditional heteroskedasticity (ARCH) models. Implements the (multivariate) BEKK-ARCH and BEKK-GARCH models, which have the univariate ARCH(1) and GARCH(1,1) models as special cases.
+A python program for numerical maximum likelihood estimation of multivariate autoregressive conditional heteroskedasticity (ARCH) models. Implements the (multivariate) BEKK-ARCH and BEKK-GARCH models, which have the univariate ARCH(1) and GARCH(1,1) models as special cases.
 
 ## Minimal working example with generated data
 ```python
@@ -19,8 +19,8 @@ X       = []
 OMEGA_T = [Omega]
 T = 2000
 for t in range(T):
-    X.append(np.random.multivariate_normal([0, 0], OMEGA_T[t], 1))
-    OMEGA_T.append(Omega + A @ X[t].reshape(2,1) @ X[t].reshape(1,2) @ A.T)
+    X.append(np.random.multivariate_normal([0, 0], OMEGA_T[t]).reshape(2, 1))
+    OMEGA_T.append(Omega + A @ X[t] @ X[t].T @ A.T)
 X = np.array(X).reshape(T, 2)
 
 # Fit BEKK-ARCH model
