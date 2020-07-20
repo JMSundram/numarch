@@ -43,12 +43,11 @@ class arch:
                        for t in range(self.T)]
 
             # Return log-likelihood contributions
-            return [-0.5*(self.p*np.log(2*math.pi)
-                          + np.log(np.linalg.det(OMEGA_T[t]))
-                          + self.X[t+1,].reshape(1,self.p)
-                          @ np.linalg.inv(OMEGA_T[t])
-                          @ self.X[t+1,].reshape(self.p,1))
-                    for t in range(self.T-1)]
+            s1 = self.p*np.log(2*math.pi)
+            s2 = np.log(np.linalg.det(OMEGA_T))[:-1]
+            s3 = np.einsum('ij, ij->i', self.X[1:],
+                           np.linalg.solve(OMEGA_T[:-1],self.X[1:]))
+            return -0.5*(np.add(s1,np.add(s2,s3)))
         elif self.model == 'bekk-garch':
             # Get input
             Omega  = param_dict['Omega']
@@ -67,12 +66,11 @@ class arch:
                 OMEGA_T.append(Omega_t)
                 
             # Return log-likelihood contributions
-            return [-0.5*(self.p*np.log(2*math.pi)
-                          + np.log(np.linalg.det(OMEGA_T[t]))
-                          + self.X[t+1,].reshape(1,self.p)
-                          @ np.linalg.inv(OMEGA_T[t])
-                          @ self.X[t+1,].reshape(self.p,1))
-                    for t in range(self.T-1)]
+            s1 = self.p*np.log(2*math.pi)
+            s2 = np.log(np.linalg.det(OMEGA_T))[:-1]
+            s3 = np.einsum('ij, ij->i', self.X[1:],
+                           np.linalg.solve(OMEGA_T[:-1],self.X[1:]))
+            return -0.5*(np.add(s1,np.add(s2,s3)))
 
     # Constraint
     def cons(self, theta):
@@ -165,6 +163,7 @@ class arch:
         se      -- Boolean indicating if standard errors should be computed
         options -- Options for scipy.optimize.minimize
         '''
+        print('--------------------------------------------------------------')
         print('BEGAN ESTIMATING {}...'.format(self.model.upper()))
         
         # Get data
@@ -221,3 +220,6 @@ class arch:
             
         # Check stationarity
         self.stationarity(res.x)
+        
+        # Print log-likelihood
+        print('\nLog-likelihood:', -res.fun*self.scaling)
