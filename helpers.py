@@ -27,7 +27,7 @@ def pos_def(mat):
     except np.linalg.linalg.LinAlgError:
         return -1
 
-def num_derivs(f, x, h=1e-06):
+def num_derivs(f, x, h=1e-08):
     '''Estimate derivatives of vector or scalar function
     
     Keyword arguments:

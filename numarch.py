@@ -209,9 +209,10 @@ class arch:
         if se:
             s = num_derivs(self.lik_con, res.x).reshape(self.T-1, self.d)
             B = (1/(self.T-1)) * s.T @ s
-            def jac(x): return list(num_derivs(self.nllik,x))
-            hes = num_derivs(jac, res.x)
-            A_inv = np.linalg.inv(hes)
+            hres = minimize(self.nllik, res.x, method='L-BFGS-B',
+                            options = {'disp': False, 'ftol': 1e-06,
+                                       'maxiter': 0})
+            A_inv = hres.hess_inv.todense()
             self.cov = (1/(self.T-1)) * A_inv @ B @ A_inv
             theta_se = np.sqrt(np.diag(self.cov))
             self.std_errors = self.unpacker(theta_se)
