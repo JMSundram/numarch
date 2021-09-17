@@ -188,9 +188,11 @@ class arch:
         
         # Minimize
         warnings.filterwarnings("ignore", category=RuntimeWarning)
+        t0 = time.time()
         res = minimize(self.nllik, theta_0, method='SLSQP',
                        constraints = {'type': 'ineq', 'fun': self.cons},
                        options = options)
+        t1 = time.time()
         warnings.resetwarnings()
         if res.success:
             print('\nNumerical optimization succesfully converged '
